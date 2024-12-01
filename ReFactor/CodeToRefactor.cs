@@ -6,9 +6,11 @@ namespace CodingAssessment.Refactor
 {
     public class People
     {
-        private static readonly DateTimeOffset Under16 = DateTimeOffset.UtcNow.AddYears(-15);
-        public string Name { get; private set; }
-        public DateTimeOffset DOB { get; private set; }
+        private static readonly DateTimeOffset Under16 = DateTimeOffset.UtcNow.AddYears(-16);
+        private static readonly Random Random = new Random();
+
+        public string Name { get; }
+        public DateTimeOffset DOB { get; }
 
         public People(string name) : this(name, Under16.Date)
         {
@@ -16,6 +18,12 @@ namespace CodingAssessment.Refactor
 
         public People(string name, DateTime dob)
         {
+            if (string.IsNullOrWhiteSpace(name))
+                throw new ArgumentException("Name cannot be null or empty", nameof(name));
+
+            if (dob > DateTime.UtcNow)
+                throw new ArgumentException("Date of birth cannot be in the future", nameof(dob));
+
             Name = name;
             DOB = dob;
         }
@@ -23,63 +31,55 @@ namespace CodingAssessment.Refactor
 
     public class BirthingUnit
     {
-        /// <summary>
-        /// MaxItemsToRetrieve
-        /// </summary>
-        private List<People> _people;
+        private static readonly Random Random = new Random();
+        private static readonly int DaysInYear = 365;
+        private static readonly string[] PossibleNames = { "Bob", "Betty" };
+        private readonly List<People> _people = new List<People>();
 
-        public BirthingUnit()
+        public List<People> GetPeople(int count)
         {
-            _people = new List<People>();
-        }
+            if (count <= 0)
+                throw new ArgumentException("Count must be positive", nameof(count));
 
-        /// <summary>
-        /// GetPeoples
-        /// </summary>
-        /// <param name="j"></param>
-        /// <returns>List<object></returns>
-        public List<People> GetPeople(int i)
-        {
-            for (int j = 0; j < i; j++)
+            for (int i = 0; i < count; i++)
             {
                 try
                 {
-                    // Creates a dandon Name
-                    string name = string.Empty;
-                    var random = new Random();
-                    if (random.Next(0, 1) == 0) {
-                        name = "Bob";
-                    }
-                    else {
-                        name = "Betty";
-                    }
-                    // Adds new people to the list
-                    _people.Add(new People(name, DateTime.UtcNow.Subtract(new TimeSpan(random.Next(18, 85) * 356, 0, 0, 0))));
+                    var name = PossibleNames[Random.Next(PossibleNames.Length)];
+                    var ageInYears = Random.Next(18, 85);
+                    var dob = DateTime.UtcNow.AddDays(-ageInYears * DaysInYear);
+
+                    _people.Add(new People(name, dob));
                 }
-                catch (Exception e)
+                catch (Exception ex)
                 {
-                    // Dont think this should ever happen
-                    throw new Exception("Something failed in user creation");
+                    throw new InvalidOperationException("Failed to create person", ex);
                 }
             }
+
             return _people;
         }
 
-        private IEnumerable<People> GetBobs(bool olderThan30)
+        public IEnumerable<People> GetBobsByAge(bool olderThan30)
         {
-            return olderThan30 ? _people.Where(x => x.Name == "Bob" && x.DOB >= DateTime.Now.Subtract(new TimeSpan(30 * 356, 0, 0, 0))) : _people.Where(x => x.Name == "Bob");
+            var thirtyYearsAgo = DateTime.UtcNow.AddYears(-30);
+            return _people.Where(x => x.Name == "Bob" &&
+                (olderThan30 ? x.DOB <= thirtyYearsAgo : x.DOB > thirtyYearsAgo));
         }
 
-        public string GetMarried(People p, string lastName)
+        public string GetMarriedName(People person, string lastName)
         {
-            if (lastName.Contains("test"))
-                return p.Name;
-            if ((p.Name.Length + lastName).Length > 255)
-            {
-                (p.Name + " " + lastName).Substring(0, 255);
-            }
+            if (person == null)
+                throw new ArgumentNullException(nameof(person));
 
-            return p.Name + " " + lastName;
+            if (string.IsNullOrWhiteSpace(lastName))
+                throw new ArgumentException("Last name cannot be null or empty", nameof(lastName));
+
+            if (lastName.Contains("test", StringComparison.OrdinalIgnoreCase))
+                return person.Name;
+
+            var fullName = $"{person.Name} {lastName}";
+            return fullName.Length > 255 ? fullName[..255] : fullName;
         }
     }
 }
